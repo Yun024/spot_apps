@@ -5,8 +5,16 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
+import com.example.Spot.auth.security.CustomUserDetails;
 import com.example.Spot.user.application.service.UserService;
 import com.example.Spot.user.presentation.dto.request.UserUpdateRequestDTO;
 import com.example.Spot.user.presentation.dto.response.UserResponseDTO;
@@ -42,9 +50,11 @@ public class UserController implements UserApi {
     @PreAuthorize("isAuthenticated()")
     @DeleteMapping("/me")
     public void delete(Authentication authentication) {
-        Integer loginUserId = (Integer) authentication.getPrincipal();
+        CustomUserDetails principal = (CustomUserDetails) authentication.getPrincipal();
+        Integer loginUserId = principal.getUserId();
         userService.deleteMe(loginUserId);
     }
+
 
     @Override
     @PreAuthorize("hasAnyRole('MASTER','OWNER','MANAGER')")

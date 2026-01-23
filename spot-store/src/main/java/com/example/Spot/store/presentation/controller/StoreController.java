@@ -18,8 +18,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
-import com.example.Spot.infra.auth.security.CustomUserDetails;
+import com.example.Spot.global.feign.dto.StorePageResponse;
+import com.example.Spot.global.infrastructure.config.security.CustomUserDetails;
 import com.example.Spot.store.application.service.StoreService;
 import com.example.Spot.store.domain.StoreStatus;
 import com.example.Spot.store.presentation.dto.request.StoreCreateRequest;
@@ -83,20 +85,30 @@ public class StoreController implements StoreApi {
             @AuthenticationPrincipal CustomUserDetails principal
     ) {
         Integer userId = principal != null ? principal.getUserId() : null;
-        boolean isAdmin = principal.getRole() == "MANAGER" || principal.getRole() == "MASTER";
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
+        boolean isAdmin = principal != null &&
+                ("MANAGER".equals(principal.getRole()) || "MASTER".equals(principal.getRole()));
+
         return ResponseEntity.ok(storeService.getStoreDetails(storeId, userId, isAdmin));
     }
 
     @Override
     @GetMapping
-    public ResponseEntity<Page<StoreListResponse>> getAllStores(
+    public ResponseEntity<StorePageResponse<StoreListResponse>> getAllStores(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
             @AuthenticationPrincipal CustomUserDetails principal
     ) {
-        boolean isAdmin = principal.getRole() == "MANAGER" || principal.getRole() == "MASTER";
+
+        boolean isAdmin =
+                "MANAGER".equals(principal.getRole()) || "MASTER".equals(principal.getRole());
+
         Pageable pageable = PageRequest.of(page, size);
-        return ResponseEntity.ok(storeService.getAllStores(isAdmin, pageable));
+        Page<StoreListResponse> stores = storeService.getAllStores(isAdmin, pageable);
+
+        return ResponseEntity.ok(StorePageResponse.from(stores));
     }
     
     @Override
@@ -133,7 +145,8 @@ public class StoreController implements StoreApi {
             @AuthenticationPrincipal CustomUserDetails principal
     ) {
         Integer userId = principal.getUserId();
-        boolean isAdmin = principal.getRole() == "MANAGER" || principal.getRole() == "MASTER";
+        boolean isAdmin =
+                "MANAGER".equals(principal.getRole()) || "MASTER".equals(principal.getRole());
         storeService.deleteStore(storeId, userId, isAdmin);
         return ResponseEntity.noContent().build();
     }
@@ -152,14 +165,18 @@ public class StoreController implements StoreApi {
 
     @Override
     @GetMapping("/search")
-    public ResponseEntity<Page<StoreListResponse>> searchStores(
+    public ResponseEntity<StorePageResponse<StoreListResponse>> searchStores(
             @RequestParam String keyword,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
             @AuthenticationPrincipal CustomUserDetails principal
     ) {
-        boolean isAdmin = principal.getRole() == "MANAGER" || principal.getRole() == "MASTER";
+        boolean isAdmin =
+                "MANAGER".equals(principal.getRole()) || "MASTER".equals(principal.getRole());
         Pageable pageable = PageRequest.of(page, size);
-        return ResponseEntity.ok(storeService.searchStoresByName(keyword, isAdmin, pageable));
+        Page<StoreListResponse> stores =
+                storeService.searchStoresByName(keyword, isAdmin, pageable);
+
+        return ResponseEntity.ok(StorePageResponse.from(stores));
     }
 }

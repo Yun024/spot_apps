@@ -7,7 +7,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import com.example.Spot.infra.auth.security.CustomUserDetails;
+import com.example.Spot.auth.security.CustomUserDetails;
 import com.example.Spot.user.domain.Role;
 import com.example.Spot.user.domain.entity.UserEntity;
 
@@ -50,7 +50,7 @@ public class JWTFilter extends OncePerRequestFilter {
         try {
             // refresh 토큰은 SecurityContext에 올리지 않음
             if (jwtUtil.isExpired(token)) {
-                filterChain.doFilter(request, response);
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 return;
             }
             String type = jwtUtil.getTokenType(token);
