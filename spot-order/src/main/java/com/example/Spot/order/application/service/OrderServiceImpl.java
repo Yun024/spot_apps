@@ -33,6 +33,7 @@ import com.example.Spot.order.infrastructure.aop.OrderStatusChange;
 import com.example.Spot.order.infrastructure.aop.OrderValidationContext;
 import com.example.Spot.order.infrastructure.aop.StoreOwnershipRequired;
 import com.example.Spot.order.infrastructure.aop.ValidateStoreAndMenu;
+import com.example.Spot.order.infrastructure.producer.OrderEventProducer;
 import com.example.Spot.order.presentation.dto.request.OrderCreateRequestDto;
 import com.example.Spot.order.presentation.dto.request.OrderItemOptionRequestDto;
 import com.example.Spot.order.presentation.dto.request.OrderItemRequestDto;
@@ -52,6 +53,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderItemOptionRepository orderItemOptionRepository;
     private final PaymentClient paymentClient;
     private final StoreClient storeClient;
+    private final OrderEventProducer orderEventProducer;
 
     @Override
     @Transactional
@@ -100,8 +102,15 @@ public class OrderServiceImpl implements OrderService {
         }
 
         OrderEntity savedOrder = orderRepository.save(order);
+        OrderResponseDto responseDto = OrderResponseDto.from(savedOrder);
+        
+        orderEventProducer.sendOrderCreated(
+                savedOrder.getId(),
+                userId,
+                responseDto.getTotalAmount().longValue()
+        );
 
-        return OrderResponseDto.from(savedOrder);
+        return responseDto;
     }
 
     @Override
@@ -282,8 +291,13 @@ public class OrderServiceImpl implements OrderService {
     @OrderStatusChange("ACCEPT")
     public OrderResponseDto acceptOrder(UUID orderId, Integer estimatedTime) {
         OrderEntity order = OrderValidationContext.getCurrentOrder();
-
+        
         order.acceptOrder(estimatedTime);
+        
+        // 주문 수락 이벤트 발행
+        orderEventProducer.sendOrderAccepted(order.getUserId(), order.getId(), estimatedTime);
+        log.info("주문 수락 및 이벤트 발행 완료: orderId={}, estimatedTime={}분", orderId, estimatedTime);
+        
         return OrderResponseDto.from(order);
     }
 
@@ -292,8 +306,12 @@ public class OrderServiceImpl implements OrderService {
     @OrderStatusChange("REJECT")
     public OrderResponseDto rejectOrder(UUID orderId, String reason) {
         OrderEntity order = OrderValidationContext.getCurrentOrder();
-
-        order.rejectOrder(reason);
+        
+        order.initiateCancel(reason, null);
+        // 주문 취소(거절) 이벤트 발행
+        orderEventProducer.sendOrderCancelled(order.getId(), reason);
+        log.info("주문 거절 처리 시작 (환불 대기): orderId={}, reason={}", orderId, reason);
+        
         return OrderResponseDto.from(order);
     }
 
@@ -326,6 +344,21 @@ public class OrderServiceImpl implements OrderService {
         order.completeOrder();
         return OrderResponseDto.from(order);
     }
+    
+    @Override
+    @Transactional
+    public void completeOrderCancellation(UUID orderId) {
+        OrderEntity order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 주문입니다."));
+        
+        if (order.getOrderStatus() == OrderStatus.CANCEL_PENDING) {
+            order.finalizeCancel();
+            log.info("[보상 트랜잭션 완료] 주문 ID {} 가 최종 확정되었습니다.", orderId);
+        } else {
+            log.warn("⚠️ [무시됨] 주문 ID {} 는 현재 취소 대기 상태가 아닙니다. (현재 상태: {})",
+                    orderId, order.getOrderStatus());
+        }
+    }
 
     @Override
     @Transactional
@@ -333,8 +366,10 @@ public class OrderServiceImpl implements OrderService {
         OrderEntity order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 주문입니다."));
 
-        // 주문 취소 처리
-        order.cancelOrder(reason, CancelledBy.CUSTOMER);
+        order.initiateCancel(reason, CancelledBy.CUSTOMER);
+        // 주문 취소(거절) 이벤트 발행
+        orderEventProducer.sendOrderCancelled(order.getId(), reason);
+        log.info("고객에 의한 취소 처리 시작 (환불 대기): orderId={}, reason={}", orderId, reason);
 
         // 결제 취소 처리 (Payment 서비스 호출)
         cancelPaymentIfExists(orderId, "고객 주문 취소: " + reason);
@@ -349,8 +384,11 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 주문입니다."));
 
         // 주문 취소 처리
-        order.cancelOrder(reason, CancelledBy.STORE);
-
+        order.initiateCancel(reason, CancelledBy.STORE);
+        // 주문 취소(거절) 이벤트 발행
+        orderEventProducer.sendOrderCancelled(order.getId(), reason);
+        log.info("가게에 의한 취소 처리 시작 (환불 대기): orderId={}, reason={}", orderId, reason);
+        
         // 결제 취소 처리 (Payment 서비스 호출)
         cancelPaymentIfExists(orderId, "가게 주문 취소: " + reason);
 
@@ -385,11 +423,19 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
+    @OrderStatusChange("COMPLETE_PAYMENT")
     public OrderResponseDto completePayment(UUID orderId) {
         OrderEntity order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 주문입니다."));
-
+        
+        log.info("결제 성공 이벤트 수신 - 주문 확정 처리 시작: orderId={}", orderId);
+        
+        // 1. 상태 변경(PAYMENT_PENDING -> PENDING)
         order.completePayment();
+        // 2. 가게 사장에게 수락/거절의 이벤트 발행
+        orderEventProducer.sendOrderPending(order.getStoreId(), order.getId());
+        log.info("결제 처리 및 사장님 알림 이벤트 발행 완료: orderId={}", orderId);
+        
         return OrderResponseDto.from(order);
     }
 
