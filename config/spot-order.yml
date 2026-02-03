@@ -1,17 +1,13 @@
-spring:
-  config:
-    import:
-      - optional:file:/config/common.yml
-      - optional:file:/config/kafka-topics.yml
-  application:
-    name: spot-order
-
 server:
   port: 8082
 
 feign:
   user:
     url: ${FEIGN_USER_URL:http://spot-user:8081}
+  store:
+    url: ${FEIGN_STORE_URL:http://spot-store:8083}
+  payment:
+    url: ${FEIGN_PAYMENT_URL:http://spot-payment:8084}
   client:
     config:
       spot-user:
@@ -20,6 +16,20 @@ feign:
         loggerLevel: BASIC
 
 resilience4j:
+  timelimiter:
+    configs:
+      default:
+        cancelRunningFuture: true
+    instances:
+      user_validate_activeUser:
+        timeoutDuration: 250ms
+
+  bulkhead:
+    instances:
+      user_validate_activeUser:
+        maxConcurrentCalls: 40
+        maxWaitDuration: 0
+
   retry:
     instances:
       user_validate_activeUser:
@@ -47,12 +57,12 @@ resilience4j:
       user_validate_activeUser:
         baseConfig: cb_slowCall_user
 
-# Actuator & Logging
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,beans,mappings,env,configprops
+
   endpoint:
     health:
       show-details: always
