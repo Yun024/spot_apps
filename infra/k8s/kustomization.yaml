@@ -6,9 +6,7 @@ kind: Kustomization
 resources:
   # Base
   - base/namespace.yaml
-  - base/configmap.yaml
-#  - base/postgres.yaml
-#  - base/redis.yaml
+  - base/secrets.yaml
 
   # Kafka
   - base/kafka/kafka.yaml
@@ -25,7 +23,6 @@ resources:
   # Monitoring & Logging
   - base/monitoring/loki/loki.yaml
   - base/monitoring/loki/loki-config.yaml
-  - base/monitoring/monitoring-ingress.yaml
   - base/monitoring/fluent-bit/fluent-bit.yaml
   - base/monitoring/fluent-bit/fluent-bit-config.yaml
 
@@ -40,14 +37,6 @@ resources:
   - base/monitoring/servicemonitors/spot-store-servicemonitor.yaml
   - base/monitoring/servicemonitors/spot-payment-servicemonitor.yaml
 
-  # Spot Apps
-  - apps/spot-ingress.yaml
-  - apps/spot-gateway.yaml
-  - apps/spot-user.yaml
-  - apps/spot-store.yaml
-  - apps/spot-order.yaml
-  - apps/spot-payment.yaml
-
 # config 디렉토리의 yml 파일들을 ConfigMap으로 생성
 configMapGenerator:
   - name: spot-app-config
@@ -60,15 +49,6 @@ configMapGenerator:
       - ../../config/spot-store.yml
       - ../../config/spot-order.yml
       - ../../config/spot-payment.yml
-    options:
-      disableNameSuffixHash: true
-
-  - name: kafka-connect-init-config
-    namespace: spot
-    files:
-        - ../../connectors/order-outbox.json
-        - ../../connectors/payment-outbox.json
-        - ../../connectors/register-connectors.sh
     options:
       disableNameSuffixHash: true
 
@@ -104,7 +84,6 @@ secretGenerator:
       - ../../.env
     options:
       disableNameSuffixHash: true
-
 
 generatorOptions:
   disableNameSuffixHash: true
