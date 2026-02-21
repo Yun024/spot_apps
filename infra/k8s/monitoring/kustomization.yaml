@@ -27,6 +27,22 @@ configMapGenerator:
     files:
       - ../base/monitoring/grafana/dashboards/15661.json
 
+  - name: grafana-dashboards-kafka-broker
+    namespace: monitoring
+    files:
+      - ../base/monitoring/grafana/dashboards/kafka-broker.json
+
+  - name: grafana-dashboards-temporal
+    namespace: monitoring
+    files:
+      - ../base/monitoring/grafana/dashboards/temporal.json
+
+      
+  - name: grafana-dashboards-kafka-exporter
+    namespace: monitoring
+    files:
+      - ../base/monitoring/grafana/dashboards/kafka-exporter.json
+    
 secretGenerator:
   - name: spot-secrets
     namespace: spot
