@@ -24,14 +24,14 @@ from generators import (
 
 # 설정
 CONFIG = {
-    'NUM_USERS': 500,
-    'NUM_STORES': 1000,
-    'NUM_CATEGORIES': 20,
-    'MENUS_PER_STORE': (5, 15),
-    'OPTIONS_PER_MENU': (0, 5),
-    'ORIGINS_PER_MENU': (0, 3),
-    'ITEMS_PER_ORDER': (1, 5),
-    'REVIEWS_PER_STORE': (0, 20),
+    'NUM_USERS': 50,
+    'NUM_STORES': 10,
+    'NUM_CATEGORIES': 3,
+    'MENUS_PER_STORE': (1, 3),
+    'OPTIONS_PER_MENU': (1, 3),
+    'ORIGINS_PER_MENU': (1, 3),
+    'ITEMS_PER_ORDER': (1, 2),
+    'REVIEWS_PER_STORE': (1, 2),
     'OWNER_RATIO': 0.1,
 }
 

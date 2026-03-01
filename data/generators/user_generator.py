@@ -1,16 +1,10 @@
 """User Generator - 사용자 및 인증 정보 생성"""
 import random
 from faker import Faker
+import bcrypt
 from .base_generator import BaseGenerator, random_timestamp
 
-try:
-    import bcrypt
-    BCRYPT_AVAILABLE = True
-except ImportError:
-    BCRYPT_AVAILABLE = False
-
 fake = Faker('ko_KR')
-
 
 class UserGenerator(BaseGenerator):
     """사용자 데이터 생성"""
@@ -74,8 +68,7 @@ class UserGenerator(BaseGenerator):
         ))
 
         # User Auth
-        hashed_password = (bcrypt.hashpw(nickname.encode('utf-8'), bcrypt.gensalt(rounds=10)).decode('utf-8')
-                          if BCRYPT_AVAILABLE else f'$2a$10$hashed_{nickname}_placeholder')
+        hashed_password = bcrypt.hashpw(nickname.encode('utf-8'), bcrypt.gensalt(rounds=10)).decode('utf-8')
 
         self.batch_insert('p_user_auth', auth_columns, (
             self.generate_uuid(), user_id, hashed_password, created_at, user_id,
