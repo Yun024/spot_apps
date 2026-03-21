@@ -1,6 +1,6 @@
 #!/bin/sh
 
-TARGET_URL=${CONNECT_URL:-"http://connect1:8083"}
+TARGET_URL=${CONNECT_URL:-"http://connect:8083"}
 
 echo "Waiting for Kafka Connect at $TARGET_URL..."
 
